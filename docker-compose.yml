@@ -1,6 +1,8 @@
 version: '3.6'
 services:
   telegraf:
+    container_name: dsigbk-telegraf
+    restart: unless-stopped
     image: telegraf:1.18-alpine
     volumes:
     - ./telegraf/etc/telegraf.conf:/etc/telegraf/telegraf.conf:ro
@@ -9,26 +11,44 @@ services:
     links:
       - influxdb
     ports:
-    - '127.0.0.1:8125:8125/udp'
+    - 8125:8125/udp
 
   influxdb:
+    container_name: dsigbk-influxdbv1
+    user: root
     image: influxdb:1.8-alpine
     env_file: configuration.env
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:8086/ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
     ports:
-      - '127.0.0.1:8086:8086'
+      - 8086:8086
     volumes:
       - ./:/imports
       - influxdb_data:/var/lib/influxdb
 
   grafana:
-    image: grafana/grafana:8.0.2
+    container_name: dsigbk-grafana
+    user: root
+    restart: unless-stopped
+    image: grafana/grafana:8.5.27
     depends_on:
       - influxdb
     env_file: configuration.env
     links:
       - influxdb
     ports:
-      - '127.0.0.1:3000:3000'
+      - 3000:3000
+    healthcheck:
+      test: ["CMD", "wget", "-O", "-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning/:/etc/grafana/provisioning/
